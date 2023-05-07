@@ -10,7 +10,7 @@ CFLAGS	=	-Wall -Wextra -Werror
 all:		$(Name)
 
 $(Name):	$(OBJS)
-			$(CC) $(CFLAGS) -lreadline -fsanitize=address $(OBJS) -o $(Name)
+			$(CC) $(CFLAGS) -lreadline $(OBJS) -o $(Name)
 
 clean:
 			rm -f $(OBJS)

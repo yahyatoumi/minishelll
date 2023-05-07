@@ -10,7 +10,6 @@
 typedef struct s_token
 {
 	char *token_chars;
-	char *token_chars_updated;
 	struct s_token *next;
 }			t_token;
 
@@ -19,6 +18,12 @@ typedef struct s_cmd
 	t_token *head_token;
 	struct s_cmd *next;
 }			t_cmd;
+
+typedef struct s_final_args
+{
+	char	*args_first_token;
+	char	**args;
+}			t_final_args;
 
 char	**ft_split(char const *s, char c);
 size_t	ft_strlen(const char *str);
