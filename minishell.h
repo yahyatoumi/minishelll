@@ -21,8 +21,8 @@ typedef struct s_cmd
 
 typedef struct s_final_args
 {
-	char	*args_first_token;
 	char	**args;
+	char	**arrows_n_files;
 }			t_final_args;
 
 char	**ft_split(char const *s, char c);

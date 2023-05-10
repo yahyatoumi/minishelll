@@ -267,7 +267,7 @@ void replace_char(char *str, char c1, char c2)
 	}
 }
 
-void _free(t_cmd *cmds, char *input, char **splitted)
+void _free(t_cmd *cmds, char *input, char **splitted, t_final_args *final_args)
 {
 	t_token *t_holder;
 	t_cmd *c_holder;
@@ -275,11 +275,9 @@ void _free(t_cmd *cmds, char *input, char **splitted)
 
 	while (cmds)
 	{
-		printf("hehe\n");
 		c_holder = cmds->next;
 		while (cmds->head_token)
 		{
-			printf("hoho\n");
 			t_holder = cmds->head_token->next;
 			free(cmds->head_token->token_chars);
 			free(cmds->head_token);
@@ -291,6 +289,14 @@ void _free(t_cmd *cmds, char *input, char **splitted)
 	i = 0;
 	while (splitted[i])
 		free(splitted[i++]);
+	i = 0;
+	while (final_args[i].args)
+	{
+		free(final_args[i].args);
+		free(final_args[i].arrows_n_files);
+		i++;
+	}
+	free(final_args);
 	free(splitted);
 	free(input);
 }
@@ -322,7 +328,29 @@ int ft_lstsize2(t_token *token)
 		tmp = tmp->next;
 		i++;
 	}
+	printf("ret %i\n", i);
 	return i;
+}
+
+int ft_count_arrows_n_files(t_token *start)
+{
+	t_token *tmp;
+	int len;
+
+	tmp = start;
+	len = 0;
+	while (tmp)
+	{
+		if (!strcmp(tmp->token_chars, ">>") || !strcmp(tmp->token_chars, ">") || !strcmp(tmp->token_chars, "<<") || !strcmp(tmp->token_chars, "<"))
+		{
+			len += 2;
+			if (tmp->next)
+				tmp = tmp->next;
+		}
+		tmp = tmp->next;
+	}
+	printf("ret %i\n", len);
+	return len;
 }
 
 t_final_args *ft_argnew(t_cmd *commands)
@@ -332,90 +360,197 @@ t_final_args *ft_argnew(t_cmd *commands)
 	t_token *tmp_token;
 	int i;
 	int j;
+	int x;
 
-	final_args = (t_final_args *)malloc(sizeof(t_final_args) * ft_lstsize(commands));
+	final_args = (t_final_args *)malloc(sizeof(t_final_args) * (ft_lstsize(commands) + 1));
 	if (!final_args)
 		return 0;
 	tmp_cmd = commands;
 	i = 0;
 	while (tmp_cmd)
 	{
-		final_args[i].args_first_token = tmp_cmd->head_token->next->token_chars;
-		printf("first == %s\n", final_args[i].args_first_token);
-		final_args[i].args = (char **)malloc(sizeof(char *) * ft_lstsize2(tmp_cmd->head_token->next->next));
-		tmp_token = tmp_cmd->head_token->next->next;
+		tmp_token = tmp_cmd->head_token->next;
+		final_args[i].args = (char **)malloc(sizeof(char *) * (ft_lstsize2(tmp_token) - ft_count_arrows_n_files(tmp_token) + 1));
+		final_args[i].arrows_n_files = (char **)malloc(sizeof(char *) * (ft_count_arrows_n_files(tmp_token) + 1));
 		j = 0;
+		x = 0;
 		while (tmp_token)
 		{
-			final_args[i].args[j] = tmp_token->token_chars;
-			printf("will do == %s\n", final_args[i].args[j]);
-			j++;
+			printf("i == %i j == %i %s\n", i, j, tmp_token->token_chars);
+			if (!strcmp(tmp_token->token_chars, ">>") || !strcmp(tmp_token->token_chars, ">") || !strcmp(tmp_token->token_chars, "<<") || !strcmp(tmp_token->token_chars, "<"))
+			{
+				printf("here  %s\n", tmp_token->token_chars);
+				final_args[i].arrows_n_files[x++] = tmp_token->token_chars;
+				if (tmp_token->next)
+				{
+					tmp_token = tmp_token->next;
+					final_args[i].arrows_n_files[x++] = tmp_token->token_chars;
+				}
+			}
+			else
+				final_args[i].args[j++] = tmp_token->token_chars;
 			tmp_token = tmp_token->next;
 		}
 		final_args[i].args[j] = 0;
+		final_args[i].arrows_n_files[x] = 0;
+		printf("j == %i x == %i\n", j, x);
 		i++;
 		tmp_cmd = tmp_cmd->next;
 	}
-	final_args[i] = NULL;
+	printf("i ==== %i\n", i);
+	final_args[i].args = 0;
 	return final_args;
 }
 
-void ft_what_will_do(t_final_args *final_args)
+int ft_expand(char **word, char **env)
+{
+	char *hold_to_free;
+	int found_var;
+	int i;
+
+	found_var = 0;
+	hold_to_free = *word;
+	i = 0;
+	while (env[i])
+	{
+		if (!strncmp(*word + 1, env[i], ft_strlen(*word + 1)))
+		{
+			found_var = 1;
+			*word = ft_strdup(env[i] + ft_strlen(*word));
+			if (!*word)
+				return 1;
+			break;
+		}
+		i++;
+	}
+	if (!found_var)
+		*word[0] = 0;
+	if (!*word)
+		return 1;
+	return 0;
+}
+
+int ft_what_will_do(t_final_args *final_args, char **env)
 {
 	int i;
 	int j;
 
 	i = 0;
-	while (final_args[i].args_first_token)
+	while (final_args[i].args)
 	{
-		printf("firs token : %s\n", final_args[i].args_first_token);
+		if (final_args[i].args[0])
+			to_lower_case(final_args[i].args[0]);
 		j = 0;
 		while (final_args[i].args[j])
 		{
+			if (final_args[i].args[j][0] == '$')
+			{
+				if (ft_expand(&final_args[i].args[j], env))
+					return 1;
+			}
 			printf("will do %s \n", final_args[i].args[j]);
+			j++;
+		}
+		printf("---\n");
+		j = 0;
+		while (final_args[i].arrows_n_files[j])
+		{
+			if (final_args[i].arrows_n_files[j][0] == '$')
+			{
+				if (strcmp(final_args[i].arrows_n_files[j - 1], "<<"))
+				{
+					if (ft_expand(&final_args[i].arrows_n_files[j], env))
+						return 1;
+				}
+			}
+			printf("still have %s \n", final_args[i].arrows_n_files[j]);
 			j++;
 		}
 		i++;
 	}
+	printf("here\n");
+	i = 0;
+	return 0;
 }
 
-int main()
+int check_pipes(char *line)
+{
+	int i;
+
+	i = 0;
+	if (line[i] == '|')
+	{
+		printf("minishell: parse error near `|'\n");
+		exit(1);
+	}
+	while (line[i])
+	{
+		if (line[i] == '|')
+		{
+			printf("%s cccccccccc0\n", line + i);
+			check_pipes(line + i + 1);
+		}
+		i++;
+	}
+	return 0;
+}
+
+int double_char_len(char **strs)
+{
+	int i;
+
+	i = 0;
+	while (strs[i])
+		i++;
+	return i;
+}
+
+int main(int c, char **v, char **env)
 {
 	char *input;
 	char **splited_cmds;
 	int i;
 	int j;
+	(void)c;
+	(void)v;
 	t_cmd *commands;
 	t_cmd *cmd_head_holder;
 	t_final_args *final_args;
 
-	// printf("%i\n", getpid());
 	while (1)
 	{
-		input = readline("-> promt ");
-		replace_char(input, '|', 11);
-		splited_cmds = ft_split(input, 11);
-		commands = NULL;
-		i = 0;
-		while (splited_cmds[i])
+		input = readline("-> minishell$> ");
+		if (ft_strlen(input))
 		{
-			j = 0;
-			ft_addbackcmd(&commands, ft_newcmd("ignored_first"));
-			while (commands->next)
-				commands = commands->next;
-			if (i == 0)
-				cmd_head_holder = commands;
-			while (splited_cmds[i][j])
-				ft_addback(&commands->head_token, ft_newtok(splited_cmds[i] + j, &j));
-			i++;
+			input = ft_strtrim(input);
+			while (input[ft_strlen(input) - 1] == '|')
+				input = ft_strjoin(input, readline("-> pipe$> "));
+			printf("fffff\n");
+			check_pipes(ft_strtrim(input));
+			replace_char(input, '|', 11);
+			splited_cmds = ft_split(input, 11);
+			commands = NULL;
+			i = 0;
+			while (splited_cmds[i])
+			{
+				j = 0;
+				ft_addbackcmd(&commands, ft_newcmd("ignored_first"));
+				while (commands->next)
+					commands = commands->next;
+				if (i == 0)
+					cmd_head_holder = commands;
+				while (splited_cmds[i][j])
+					ft_addback(&commands->head_token, ft_newtok(splited_cmds[i] + j, &j));
+				i++;
+			}
+			i = 0;
+			commands = cmd_head_holder;
+			// ft_line_up(commands);
+			// ft_execution(cmd_head_holder);
+			final_args = ft_argnew(commands);
+			printf("-----------------%s\n", final_args[0].arrows_n_files[0]);
+			ft_what_will_do(final_args, env);
+			_free(cmd_head_holder, input, splited_cmds, final_args);
 		}
-		i = 0;
-		commands = cmd_head_holder;
-		// ft_line_up(commands);
-		// ft_execution(cmd_head_holder);
-		final_args = ft_argnew(commands);
-		printf("-----------------\n");
-		ft_what_will_do(final_args);
-		_free(cmd_head_holder, input, splited_cmds);
 	}
 }
