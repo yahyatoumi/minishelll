@@ -419,6 +419,7 @@ int ft_expand(char **word, char **env)
 			*word = ft_strdup(env[i] + ft_strlen(*word));
 			if (!*word)
 				return 1;
+			free(hold_to_free);
 			break;
 		}
 		i++;
@@ -523,10 +524,11 @@ int main(int c, char **v, char **env)
 		if (ft_strlen(input))
 		{
 			input = ft_strtrim(input);
-			while (input[ft_strlen(input) - 1] == '|')
-				input = ft_strjoin(input, readline("-> pipe$> "));
-			printf("fffff\n");
-			check_pipes(ft_strtrim(input));
+			if (input[ft_strlen(input) - 1] == '|')
+			{
+				printf("parse error $  %s  $\n", input);
+				exit(1);
+			}
 			replace_char(input, '|', 11);
 			splited_cmds = ft_split(input, 11);
 			commands = NULL;

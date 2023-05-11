@@ -11,7 +11,7 @@ static int ft_char_in_set(char c)
 	return (0);
 }
 
-char *ft_strtrim(char const *s1)
+char *ft_strtrim(char *s1)
 {
 	char *str;
 	size_t i;
@@ -33,5 +33,6 @@ char *ft_strtrim(char const *s1)
 	while (start < end)
 		str[i++] = s1[start++];
 	str[i] = 0;
+	free(s1);
 	return (str);
 }
